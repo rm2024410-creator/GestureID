@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GestureID</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#667eea">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+    <script type="module">
+        import { HandLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/vision_bundle.mjs";
+        window.HandLandmarker = HandLandmarker;
+        window.FilesetResolver = FilesetResolver;
+        window.dispatchEvent(new Event('mediapipe-listo'));
+    </script>
+    <style>
+        * {
+            border: none !important;
+            outline: none !important;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #fef3c7 0%, #dbeafe 50%, #fce7f3 100%);
+            min-height: 100vh;
+        }
+        #video-container { position: relative; width: 100%; max-width: 640px; aspect-ratio: 4/3; }
+        #webcam { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); border-radius: 24px; }
+        .card {
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            border: none;
+        }
+        .respuesta-btn {
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: none;
+            background: #f8fafc;
+        }
+        .respuesta-btn:hover {
+            transform: translateY(-4px) scale(1.02);
+            background: #fdf2f8;
+            box-shadow: 0 10px 30px rgba(236, 72, 153, 0.3);
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in { animation: fadeIn 0.5s ease; }
+        @keyframes rainbow {
+            0% { color: #ef4444; }
+            25% { color: #f59e0b; }
+            50% { color: #10b981; }
+            75% { color: #3b82f6; }
+            100% { color: #8b5cf6; }
+        }
+        .rainbow-text { animation: rainbow 4s infinite; }
+        @keyframes pop {
+            0% { transform: scale(0.5); opacity: 0; }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .pop { animation: pop 0.5s ease; }
+
+        /* ANIMACIÓN DE LA MANO SALUDANDO (MÁS LENTA) */
+        @keyframes saludar {
+            0%, 100% {
+                transform: rotate(-15deg) translateY(0);
+            }
+            25% {
+                transform: rotate(15deg) translateY(-5px);
+            }
+            50% {
+                transform: rotate(-10deg) translateY(0);
+            }
+            75% {
+                transform: rotate(15deg) translateY(-5px);
+            }
+        }
+        .mano-animada {
+            font-size: 4rem;
+            line-height: 1;
+            animation: saludar 2.5s ease-in-out infinite;
+            display: inline-block;
+            transform-origin: bottom center;
+            filter: drop-shadow(0 6px 12px rgba(251, 191, 36, 0.5));
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center p-4">
+
+    <div class="max-w-5xl w-full">
+
+        <!-- HEADER CON EMOJI 🖐️ -->
+        <header class="card p-6 mb-6">
+            <div class="flex items-center justify-center gap-5">
+                <span class="mano-animada">🖐️</span>
+                <div>
+                    <h1 class="text-4xl font-bold rainbow-text">GestureID</h1>
+                    <p class="text-gray-500 text-sm">Comunicación sin Barreras</p>
+                </div>
+            </div>
+        </header>
+
+        <main>
+
+            <!-- SECCIÓN: CONVERSAR -->
+            <section class="fade-in">
+                <div class="flex flex-col items-center">
+
+                    <button id="start-btn" class="px-10 py-4 bg-gradient-to-r from-amber-400 to-pink-500 hover:from-amber-500 hover:to-pink-600 text-white font-bold rounded-2xl transition-all transform hover:scale-105 shadow-xl mb-6 text-lg">
+                        🎥 Encender Cámara
+                    </button>
+
+                    <div id="video-container" class="card p-2 hidden">
+                        <video id="webcam" autoplay playsinline muted></video>
+                    </div>
+
+                    <!-- RESULTADO -->
+                    <div class="mt-6 w-full max-w-2xl card p-8 text-center">
+                        <p class="text-gray-400 text-sm uppercase tracking-wider mb-4">Seña detectada</p>
+                        <h2 id="result-text" class="text-5xl font-bold text-pink-500">
+                            ---
+                        </h2>
+                        <p id="status-text" class="text-xs text-gray-400 mt-3">Esperando...</p>
+                        <div id="debug-text" class="text-xs text-gray-300 mt-1"></div>
+                    </div>
+
+                    <!-- PANEL DE RESPUESTAS -->
+                    <div id="panel-respuestas" class="mt-6 w-full max-w-3xl card p-6">
+                        <h3 class="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
+                            <span>💡</span> Respuestas sugeridas
+                        </h3>
+                        <div id="lista-respuestas" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <p class="text-gray-400 text-sm col-span-2 text-center py-4">
+                                Haz una seña para ver las respuestas
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script src="renderer.js"></script>
+
+    <!-- Service Worker para PWA -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js');
+      }
+    </script>
+</body>
+</html>
+
+
