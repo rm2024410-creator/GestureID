@@ -1,10 +1,12 @@
 {
   "name": "GestureID",
   "short_name": "GestureID",
+  "description": "Plataforma de Interacción Gestual y Asistencia Multimodal",
   "start_url": "./index.html",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#fef3c7",
-  "theme_color": "#667eea",
+  "theme_color": "#2563eb",
   "icons": [
     {
       "src": "logo.png",
@@ -15,6 +17,12 @@
       "src": "logo.png",
       "sizes": "512x512",
       "type": "image/png"
+    },
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
