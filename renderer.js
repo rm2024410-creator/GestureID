@@ -1,7 +1,8 @@
 // ==========================================
 // CONFIGURACIÓN
 // ==========================================
-const MODELO_PATH = "modelo_completo.json";
+// IMPORTANTE: Aquí le decimos que busque dentro de la carpeta "modelo"
+const MODELO_PATH = "modelo/modelo_completo.json";
 
 const video = document.getElementById('webcam');
 const startBtn = document.getElementById('start-btn');
@@ -20,7 +21,7 @@ let lastSpokenTime = 0;
 let contadorEstable = 0;
 let ultimaPrediccion = "";
 const REPETICIONES_NECESARIAS = 5;
-const UMBRAL_CONFIANZA = 0.70;
+const UMBRAL_CONFIANZA = 0.40;
 
 // ==========================================
 // VOZ
@@ -91,9 +92,13 @@ async function iniciarTodo() {
     startBtn.textContent = "⏳ Cargando...";
 
     try {
-        // ⚠️ CAMBIO: fetch en lugar de fs.readFileSync (para web)
-        const respuesta = await fetch(MODELO_PATH);
-        const paquete = await respuesta.json();
+        // Leer el archivo con fs (para Electron de escritorio)
+        // Nota: Busca dentro de la carpeta "modelo/"
+        const fs = require('fs');
+        const path = require('path');
+        const rutaCompleta = path.join(__dirname, 'modelo', 'modelo_completo.json');
+        const contenido = fs.readFileSync(rutaCompleta, 'utf-8');
+        const paquete = JSON.parse(contenido);
 
         clases = paquete.clases;
         console.log("Clases:", clases);
@@ -269,6 +274,32 @@ async function predecirWebcam() {
 
         if (detectedWord !== "---") {
             mostrarRespuestas(detectedWord);
+
+            // --- EFECTO VISUAL Y SONIDO AL DETECTAR ---
+            const tarjeta = document.getElementById('tarjeta-resultado');
+            if (tarjeta && detectedWord !== ultimaPrediccion) {
+                // Efecto de pulso rosa
+                tarjeta.classList.remove('detectado-pulse');
+                void tarjeta.offsetWidth; // Truco para reiniciar la animación
+                tarjeta.classList.add('detectado-pulse');
+
+                // Sonido de "Ding"
+                try {
+                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = audioCtx.createOscillator();
+                    const gainNode = audioCtx.createGain();
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioCtx.destination);
+                    oscillator.type = 'sine';
+                    oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
+                    gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+                    oscillator.start();
+                    oscillator.stop(audioCtx.currentTime + 0.5);
+                } catch(e) {
+                    console.log("Audio no soportado");
+                }
+            }
         }
 
         const now = Date.now();
