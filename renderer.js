@@ -1,9 +1,6 @@
 // ==========================================
 // CONFIGURACIÓN
 // ==========================================
-// IMPORTANTE: Aquí le decimos que busque dentro de la carpeta "modelo"
-const MODELO_PATH = "modelo/modelo_completo.json";
-
 const video = document.getElementById('webcam');
 const startBtn = document.getElementById('start-btn');
 const videoContainer = document.getElementById('video-container');
@@ -21,7 +18,7 @@ let lastSpokenTime = 0;
 let contadorEstable = 0;
 let ultimaPrediccion = "";
 const REPETICIONES_NECESARIAS = 5;
-const UMBRAL_CONFIANZA = 0.40;
+const UMBRAL_CONFIANZA = 0.40; // Bajado para que detecte más fácil
 
 // ==========================================
 // VOZ
@@ -84,7 +81,7 @@ const baseDeDatos = {
 };
 
 // ==========================================
-// INICIAR
+// INICIAR (COMPATIBLE CON PC Y TELÉFONO)
 // ==========================================
 async function iniciarTodo() {
     statusText.textContent = "Cargando modelo...";
@@ -92,13 +89,20 @@ async function iniciarTodo() {
     startBtn.textContent = "⏳ Cargando...";
 
     try {
-        // Leer el archivo con fs (para Electron de escritorio)
-        // Nota: Busca dentro de la carpeta "modelo/"
-        const fs = require('fs');
-        const path = require('path');
-        const rutaCompleta = path.join(__dirname, 'modelo', 'modelo_completo.json');
-        const contenido = fs.readFileSync(rutaCompleta, 'utf-8');
-        const paquete = JSON.parse(contenido);
+        let paquete;
+
+        // Si existe 'require', significa que estamos en Electron (PC)
+        if (typeof require !== 'undefined') {
+            const fs = require('fs');
+            const path = require('path');
+            const rutaCompleta = path.join(__dirname, 'modelo', 'modelo_completo.json');
+            const contenido = fs.readFileSync(rutaCompleta, 'utf-8');
+            paquete = JSON.parse(contenido);
+        } else {
+            // Si NO existe 'require', estamos en un navegador (Teléfono/Chrome)
+            const respuesta = await fetch("modelo/modelo_completo.json");
+            paquete = await respuesta.json();
+        }
 
         clases = paquete.clases;
         console.log("Clases:", clases);
@@ -153,7 +157,6 @@ async function iniciarTodo() {
 // ==========================================
 function mostrarRespuestas(pregunta) {
     listaRespuestas.innerHTML = '';
-
     let entrada = null;
     for (const key in baseDeDatos) {
         if (key.toLowerCase() === pregunta.toLowerCase()) {
@@ -191,7 +194,7 @@ function mostrarRespuestas(pregunta) {
 }
 
 // ==========================================
-// NORMALIZAR
+// NORMALIZAR Y PREDECIR
 // ==========================================
 function normalizeLandmarks(landmarks) {
     const wrist = landmarks[0];
@@ -219,9 +222,6 @@ function extraerVectorDosManos(resultados) {
     return vector;
 }
 
-// ==========================================
-// PREDICCIÓN
-// ==========================================
 async function predecirWebcam() {
     if (!handLandmarker || !modelo) return;
 
@@ -275,15 +275,13 @@ async function predecirWebcam() {
         if (detectedWord !== "---") {
             mostrarRespuestas(detectedWord);
 
-            // --- EFECTO VISUAL Y SONIDO AL DETECTAR ---
+            // Efecto visual
             const tarjeta = document.getElementById('tarjeta-resultado');
             if (tarjeta && detectedWord !== ultimaPrediccion) {
-                // Efecto de pulso rosa
                 tarjeta.classList.remove('detectado-pulse');
-                void tarjeta.offsetWidth; // Truco para reiniciar la animación
+                void tarjeta.offsetWidth;
                 tarjeta.classList.add('detectado-pulse');
 
-                // Sonido de "Ding"
                 try {
                     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                     const oscillator = audioCtx.createOscillator();
@@ -296,9 +294,7 @@ async function predecirWebcam() {
                     gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
                     oscillator.start();
                     oscillator.stop(audioCtx.currentTime + 0.5);
-                } catch(e) {
-                    console.log("Audio no soportado");
-                }
+                } catch(e) {}
             }
         }
 
