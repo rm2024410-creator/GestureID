@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GestureID</title>
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#667eea">
+    <meta name="theme-color" content="#0044ff">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
     <script type="module">
@@ -15,145 +15,134 @@
         window.dispatchEvent(new Event('mediapipe-listo'));
     </script>
     <style>
-        * {
-            border: none !important;
-            outline: none !important;
-        }
+        * { border: none !important; outline: none !important; }
+        
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #fef3c7 0%, #dbeafe 50%, #fce7f3 100%);
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #3b82f6 100%);
             min-height: 100vh;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
+
+        /* Video grande */
         #video-container { position: relative; width: 100%; max-width: 640px; aspect-ratio: 4/3; }
         #webcam { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); border-radius: 24px; }
+        
+        /* Tarjetas grandes */
         .card {
             background: white;
             border-radius: 24px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-            border: none;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+            color: #1e293b;
         }
-        .respuesta-btn {
-            transition: all 0.3s ease;
-            cursor: pointer;
-            border: none;
-            background: #f8fafc;
-        }
-        .respuesta-btn:hover {
-            transform: translateY(-4px) scale(1.02);
-            background: #fdf2f8;
-            box-shadow: 0 10px 30px rgba(236, 72, 153, 0.3);
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .fade-in { animation: fadeIn 0.5s ease; }
-        @keyframes rainbow {
-            0% { color: #ef4444; }
-            25% { color: #f59e0b; }
-            50% { color: #10b981; }
-            75% { color: #3b82f6; }
-            100% { color: #8b5cf6; }
-        }
-        .rainbow-text { animation: rainbow 4s infinite; }
-        @keyframes pop {
-            0% { transform: scale(0.5); opacity: 0; }
-            50% { transform: scale(1.2); }
-            100% { transform: scale(1); opacity: 1; }
-        }
-        .pop { animation: pop 0.5s ease; }
 
-        /* ANIMACIÓN DE LA MANO SALUDANDO (MÁS LENTA) */
-        @keyframes saludar {
-            0%, 100% {
-                transform: rotate(-15deg) translateY(0);
-            }
-            25% {
-                transform: rotate(15deg) translateY(-5px);
-            }
-            50% {
-                transform: rotate(-10deg) translateY(0);
-            }
-            75% {
-                transform: rotate(15deg) translateY(-5px);
-            }
+        .btn-principal {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: white;
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
+            transition: all 0.3s ease;
         }
+        .btn-principal:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(37, 99, 235, 0.6);
+        }
+
+        .respuesta-btn {
+            transition: all 0.2s ease;
+            cursor: pointer;
+            background: #f8fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 1rem;
+        }
+        .respuesta-btn:active {
+            transform: scale(0.95);
+            background: #eff6ff;
+            border-color: #3b82f6;
+        }
+        
         .mano-animada {
             font-size: 4rem;
             line-height: 1;
             animation: saludar 2.5s ease-in-out infinite;
             display: inline-block;
             transform-origin: bottom center;
-            filter: drop-shadow(0 6px 12px rgba(251, 191, 36, 0.5));
+            filter: drop-shadow(0 6px 12px rgba(59, 130, 246, 0.5));
         }
+        @keyframes saludar {
+            0%, 100% { transform: rotate(-15deg) translateY(0); }
+            25% { transform: rotate(15deg) translateY(-5px); }
+            50% { transform: rotate(-10deg) translateY(0); }
+            75% { transform: rotate(15deg) translateY(-5px); }
+        }
+
+        @keyframes pulse-blue {
+            0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+            70% { box-shadow: 0 0 0 20px rgba(59, 130, 246, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+        .detectado-pulse { animation: pulse-blue 1s ease-out; }
+
+        @keyframes rainbow {
+            0% { color: #ef4444; } 25% { color: #f59e0b; } 50% { color: #10b981; } 75% { color: #3b82f6; } 100% { color: #8b5cf6; }
+        }
+        .texto-arcoiris { animation: rainbow 4s infinite; font-weight: 900; }
     </style>
 </head>
-<body class="flex flex-col items-center p-4">
+<body>
 
-    <div class="max-w-5xl w-full">
+    <div class="max-w-4xl w-full p-4 flex flex-col items-center">
 
-        <!-- HEADER CON EMOJI 🖐️ -->
-        <header class="card p-6 mb-6">
-            <div class="flex items-center justify-center gap-5">
-                <span class="mano-animada">🖐️</span>
-                <div>
-                    <h1 class="text-4xl font-bold rainbow-text">GestureID</h1>
-                    <p class="text-gray-500 text-sm">Comunicación sin Barreras</p>
-                </div>
+        <header class="card w-full p-5 mb-6 flex items-center justify-center gap-4">
+            <span class="mano-animada">🖐️</span>
+            <div>
+                <h1 class="text-4xl texto-arcoiris tracking-tight">GestureID</h1>
+                <p class="text-gray-500 text-md font-medium">Comunicación sin Barreras</p>
             </div>
         </header>
 
-        <main>
+        <main class="w-full flex flex-col items-center">
+            
+            <button id="start-btn" class="btn-principal px-10 py-4 rounded-2xl font-bold mb-6 text-xl flex items-center gap-2">
+                🎥 Encender Cámara
+            </button>
 
-            <!-- SECCIÓN: CONVERSAR -->
-            <section class="fade-in">
-                <div class="flex flex-col items-center">
+            <div id="video-container" class="card p-2 hidden mb-6">
+                <video id="webcam" autoplay playsinline muted></video>
+            </div>
 
-                    <button id="start-btn" class="px-10 py-4 bg-gradient-to-r from-amber-400 to-pink-500 hover:from-amber-500 hover:to-pink-600 text-white font-bold rounded-2xl transition-all transform hover:scale-105 shadow-xl mb-6 text-lg">
-                        🎥 Encender Cámara
-                    </button>
+            <div id="tarjeta-resultado" class="mb-6 w-full card p-8 text-center transition-all duration-300">
+                <p class="text-gray-400 text-sm font-bold uppercase tracking-widest mb-2">Seña detectada</p>
+                <h2 id="result-text" class="text-7xl texto-arcoiris mb-2">
+                    ---
+                </h2>
+                <p id="status-text" class="text-sm text-gray-500 font-medium mt-3">Esperando...</p>
+                <div id="debug-text" class="text-[10px] text-gray-400 mt-2"></div>
+            </div>
 
-                    <div id="video-container" class="card p-2 hidden">
-                        <video id="webcam" autoplay playsinline muted></video>
-                    </div>
-
-                    <!-- RESULTADO -->
-                    <div class="mt-6 w-full max-w-2xl card p-8 text-center">
-                        <p class="text-gray-400 text-sm uppercase tracking-wider mb-4">Seña detectada</p>
-                        <h2 id="result-text" class="text-5xl font-bold text-pink-500">
-                            ---
-                        </h2>
-                        <p id="status-text" class="text-xs text-gray-400 mt-3">Esperando...</p>
-                        <div id="debug-text" class="text-xs text-gray-300 mt-1"></div>
-                    </div>
-
-                    <!-- PANEL DE RESPUESTAS -->
-                    <div id="panel-respuestas" class="mt-6 w-full max-w-3xl card p-6">
-                        <h3 class="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
-                            <span>💡</span> Respuestas sugeridas
-                        </h3>
-                        <div id="lista-respuestas" class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <p class="text-gray-400 text-sm col-span-2 text-center py-4">
-                                Haz una seña para ver las respuestas
-                            </p>
-                        </div>
-                    </div>
-
+            <div id="panel-respuestas" class="w-full card p-6">
+                <h3 class="text-xl font-bold text-gray-700 mb-4 flex items-center gap-2 border-b pb-2">
+                    <span>💬</span> Toca para responder
+                </h3>
+                <div id="lista-respuestas" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <p class="text-gray-400 text-md col-span-2 text-center py-4">
+                        Haz una seña para ver las respuestas
+                    </p>
                 </div>
-            </section>
+            </div>
 
         </main>
     </div>
 
     <script src="renderer.js"></script>
 
-    <!-- Service Worker para PWA -->
     <script>
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js');
+        navigator.serviceWorker.register('sw.js');
       }
     </script>
 </body>
 </html>
-
-
