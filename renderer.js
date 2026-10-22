@@ -100,7 +100,7 @@ async function iniciarTodo() {
             paquete = JSON.parse(contenido);
         } else {
             // Si NO existe 'require', estamos en un navegador (Teléfono/Chrome)
-            const respuesta = await fetch("modelo/modelo_completo.json");
+            const respuesta = await fetch("modelo_completo.json");
             paquete = await respuesta.json();
         }
 
