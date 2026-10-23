@@ -21,6 +21,17 @@ const REPETICIONES_NECESARIAS = 5;
 const UMBRAL_CONFIANZA = 0.40; // Bajado para que detecte más fácil
 
 // ==========================================
+// EMOJIS (AQUÍ ESTÁ LA MAGIA)
+// ==========================================
+const emojisSenas = {
+    "Hola": "👋", "Buenos Dias": "☀️", "Buenas Tardes": "🌤️", "Buenas Noches": "🌙",
+    "Como estas": "😊", "Bien": "👍", "Mal": "👎", "Regular": "😐", "Y tu": "🤔",
+    "Adios": "👋", "Gracias": "🙏", "Por favor": "🤲", "De nada": "😊",
+    "Mi nombres es": "👤", "Si": "✅", "No": "❌", "Agua": "💧", "Comer": "🍎", "Ayuda": "🆘"
+};
+function obtenerEmoji(sena) { return emojisSenas[sena] || "✋"; }
+
+// ==========================================
 // VOZ
 // ==========================================
 const synth = window.speechSynthesis;
@@ -100,13 +111,14 @@ async function iniciarTodo() {
             paquete = JSON.parse(contenido);
         } else {
             // Si NO existe 'require', estamos en un navegador (Teléfono/Chrome)
+            // ⚠️ CORREGIDO: Busca suelto para que funcione en GitHub
             const respuesta = await fetch("modelo_completo.json");
             paquete = await respuesta.json();
         }
 
         clases = paquete.clases;
         console.log("Clases:", clases);
-        statusText.textContent = "Clases: " + clases.join(", ");
+        statusText.textContent = "Modelo listo";
 
         const binaryString = atob(paquete.pesos);
         const bytes = new Uint8Array(binaryString.length);
@@ -153,7 +165,7 @@ async function iniciarTodo() {
 }
 
 // ==========================================
-// RESPUESTAS
+// RESPUESTAS (AQUÍ SE APLICAN LOS EMOJIS)
 // ==========================================
 function mostrarRespuestas(pregunta) {
     listaRespuestas.innerHTML = '';
@@ -176,16 +188,18 @@ function mostrarRespuestas(pregunta) {
 
     respuestasAMostrar.forEach(resp => {
         const badge = document.createElement('div');
-        badge.className = 'respuesta-btn bg-white rounded-2xl p-4 cursor-pointer pop';
+        badge.className = 'respuesta-btn bg-white rounded-2xl p-4 cursor-pointer pop flex items-center gap-4';
+        
+        // AQUÍ SE REEMPLAZA LA LETRA POR EL EMOJI
+        const emoji = obtenerEmoji(resp.sena);
+
         badge.innerHTML = `
-            <div class="flex items-center gap-4">
-                <div class="w-12 h-12 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center font-bold text-white text-xl">
-                    ${resp.sena.charAt(0)}
-                </div>
-                <div class="flex-1">
-                    <div class="font-bold text-gray-800 text-lg">"${resp.texto}"</div>
-                    <div class="text-xs text-pink-500 mt-1">Seña: <span class="font-semibold">${resp.sena}</span></div>
-                </div>
+            <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-2xl">
+                ${emoji}
+            </div>
+            <div class="flex-1">
+                <div class="font-bold text-gray-800 text-lg">"${resp.texto}"</div>
+                <div class="text-xs text-blue-500 mt-1">Seña: <span class="font-semibold">${resp.sena}</span></div>
             </div>
         `;
         badge.addEventListener('click', () => hablar(resp.texto));
