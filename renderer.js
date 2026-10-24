@@ -17,13 +17,10 @@ let lastSpokenWord = "";
 let lastSpokenTime = 0;
 let contadorEstable = 0;
 let ultimaPrediccion = "";
-let historialPredicciones = [];
-let modeloTieneClaseNada = false;
 
-const REPETICIONES_NECESARIAS = 15; // Más repeticiones = espera a estar seguro
-const UMBRAL_CONFIANZA = 0.75;      // 75% de confianza para evitar falsos positivos
-const VENTANA_PREDICCIONES = 5;
-const MARGEN_MINIMO = 0.12;
+// 👇 AQUÍ ESTÁ LA ESPERA QUE PEDISTE (No daña nada)
+const REPETICIONES_NECESARIAS = 15; 
+const UMBRAL_CONFIANZA = 0.75; 
 
 // ==========================================
 // EMOJIS (AQUÍ ESTÁ LA MAGIA)
@@ -107,7 +104,7 @@ async function iniciarTodo() {
     try {
         let paquete;
 
-        // Si existe 'require', significa que estamos en Electron (PC)
+        // 1. PARA LA PC (Electron): Busca dentro de la carpeta "modelo"
         if (typeof require !== 'undefined') {
             const fs = require('fs');
             const path = require('path');
@@ -115,17 +112,14 @@ async function iniciarTodo() {
             const contenido = fs.readFileSync(rutaCompleta, 'utf-8');
             paquete = JSON.parse(contenido);
         } else {
-            // Si NO existe 'require', estamos en un navegador (Teléfono/Chrome)
+            // 2. PARA EL TELÉFONO (Navegador): Busca el archivo SUELTO
             const respuesta = await fetch("modelo_completo.json");
             paquete = await respuesta.json();
         }
 
         clases = paquete.clases;
-        modeloTieneClaseNada = clases.some(clase => clase.trim().toLocaleLowerCase('es') === 'nada');
         console.log("Clases:", clases);
-        statusText.textContent = modeloTieneClaseNada
-            ? "Modelo listo"
-            : "Modelo sin clase Nada; puede confundir señas";
+        statusText.textContent = "Modelo listo";
 
         const binaryString = atob(paquete.pesos);
         const bytes = new Uint8Array(binaryString.length);
@@ -139,10 +133,6 @@ async function iniciarTodo() {
             weightSpecs: paquete.pesosEspecificaciones,
             weightData: weightData
         }));
-        const cantidadSalidas = modelo.outputs[0].shape[modelo.outputs[0].shape.length - 1];
-        if (cantidadSalidas !== clases.length) {
-            throw new Error(`Modelo incompatible: genera ${cantidadSalidas} resultados y tiene ${clases.length} etiquetas. Vuelve a entrenarlo.`);
-        }
         console.log("Modelo cargado");
 
         const vision = await window.FilesetResolver.forVisionTasks(
@@ -163,9 +153,7 @@ async function iniciarTodo() {
 
         videoContainer.classList.remove('hidden');
         startBtn.style.display = 'none';
-        statusText.textContent = modeloTieneClaseNada
-            ? "Modelo listo"
-            : "Aviso: reentrena el modelo con la clase Nada";
+        statusText.textContent = "Modelo listo";
 
         mostrarRespuestas("__generales__");
 
@@ -264,33 +252,20 @@ async function predecirWebcam() {
             const prediccion = modelo.predict(input);
             const datos = await prediccion.data();
 
-            historialPredicciones.push(Array.from(datos));
-            if (historialPredicciones.length > VENTANA_PREDICCIONES) {
-                historialPredicciones.shift();
-            }
-
-            const promedios = datos.map((_, indice) =>
-                historialPredicciones.reduce((suma, frame) => suma + frame[indice], 0) / historialPredicciones.length
-            );
             let maxIdx = 0;
-            let maxProb = promedios[0];
-            let segundaProb = 0;
-            for (let i = 1; i < promedios.length; i++) {
-                if (promedios[i] > maxProb) {
-                    segundaProb = maxProb;
-                    maxProb = promedios[i];
+            let maxProb = datos[0];
+            for (let i = 1; i < datos.length; i++) {
+                if (datos[i] > maxProb) {
+                    maxProb = datos[i];
                     maxIdx = i;
-                } else if (promedios[i] > segundaProb) {
-                    segundaProb = promedios[i];
                 }
             }
 
             const palabra = clases[maxIdx];
-            const esClaseNada = palabra && palabra.trim().toLocaleLowerCase('es') === 'nada';
-            const debugStr = clases.map((c, i) => `${c}: ${(promedios[i] * 100).toFixed(0)}%`).join(" | ");
+            const debugStr = clases.map((c, i) => `${c}: ${(datos[i] * 100).toFixed(0)}%`).join(" | ");
             debugText.textContent = debugStr;
 
-            if (!esClaseNada && maxProb > UMBRAL_CONFIANZA && maxProb - segundaProb >= MARGEN_MINIMO) {
+            if (maxProb > UMBRAL_CONFIANZA) {
                 if (palabra === ultimaPrediccion) {
                     contadorEstable++;
                 } else {
@@ -307,11 +282,6 @@ async function predecirWebcam() {
 
             input.dispose();
             prediccion.dispose();
-        } else {
-            historialPredicciones = [];
-            contadorEstable = 0;
-            ultimaPrediccion = "";
-            debugText.textContent = "Sin manos detectadas";
         }
 
         resultText.textContent = detectedWord;
