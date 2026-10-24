@@ -18,9 +18,9 @@ let lastSpokenTime = 0;
 let contadorEstable = 0;
 let ultimaPrediccion = "";
 
-// 👇 AJUSTADO PARA EVITAR QUE SE SOBREPONGAN 👇
-const REPETICIONES_NECESARIAS = 10;  // Espera 10 cuadros seguidos
-const UMBRAL_CONFIANZA = 0.85;       // Exige 85% de seguridad
+// 👇 AJUSTE PERFECTO: Rápido pero sin confusiones 👇
+const REPETICIONES_NECESARIAS = 6;  // 6 cuadros (súper rápido)
+const UMBRAL_CONFIANZA = 0.65;       // 65% de confianza (no exige perfección)
 
 // ==========================================
 // EMOJIS
@@ -146,8 +146,7 @@ function mostrarRespuestas(pregunta) {
     }
 
     const respuestasAMostrar = entrada ? entrada.respuestas : [
-        { texto: "Sí", sena: "Si" }, { texto: "No", sena: "No" }, { texto: "Gracias", sena: "Gracias" },
-        { texto: "Por favor", sena: "Por favor" }, { texto: "De nada", sena: "De nada" }, { texto: "Hola", sena: "Hola" }
+        { texto: "Haz una seña para responder", sena: "---" }
     ];
 
     respuestasAMostrar.forEach(resp => {
@@ -247,9 +246,13 @@ async function predecirWebcam() {
             prediccion.dispose();
         }
 
-        resultText.textContent = detectedWord;
-
-        if (detectedWord !== "---") {
+        // Si no está seguro, limpia la pantalla para que no se quede pegada
+        if (detectedWord === "---") {
+            resultText.textContent = "---";
+            ultimaPrediccion = ""; 
+            contadorEstable = 0;
+        } else {
+            resultText.textContent = detectedWord;
             mostrarRespuestas(detectedWord);
 
             const tarjeta = document.getElementById('tarjeta-resultado');
@@ -275,12 +278,12 @@ async function predecirWebcam() {
         }
 
         const now = Date.now();
-        // El temporizador de 3 segundos evita que se pisen las palabras
-        if (detectedWord !== "---" && detectedWord !== lastSpokenWord && (now - lastSpokenTime > 3000)) {
+        // 👇 TIEMPO REDUCIDO A 1.5 SEGUNDOS 👇
+        if (detectedWord !== "---" && detectedWord !== lastSpokenWord && (now - lastSpokenTime > 1500)) {
             hablar(detectedWord);
             lastSpokenWord = detectedWord;
             lastSpokenTime = now;
-            setTimeout(() => { lastSpokenWord = ""; }, 4000);
+            setTimeout(() => { lastSpokenWord = ""; }, 2000);
         } else if (detectedWord === "---") {
             lastSpokenWord = "";
         }
