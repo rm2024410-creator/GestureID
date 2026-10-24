@@ -23,8 +23,8 @@ let historialPredicciones = [];
 let lastDisplayedWord = "";
 let lastDetectionTime = 0;
 
-const REPETICIONES_NECESARIAS = 8;   
-const UMBRAL_CONFIANZA = 0.60;       
+const REPETICIONES_NECESARIAS = 11;  // Ni muy rápido, ni muy lento
+const UMBRAL_CONFIANZA = 0.70;       // 70% de seguridad (evita confusiones)       
 const FRAME_INTERVAL_MS = 66;
 const MAX_HISTORIAL = 8;
 const DETECCION_MANTENER_MS = 1200;
