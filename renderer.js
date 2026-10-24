@@ -19,8 +19,8 @@ let contadorEstable = 0;
 let ultimaPrediccion = "";
 
 // 👇 AJUSTE PERFECTO: Rápido pero sin confusiones 👇
-const REPETICIONES_NECESARIAS = 6;  // 6 cuadros (súper rápido)
-const UMBRAL_CONFIANZA = 0.65;       // 65% de confianza (no exige perfección)
+const REPETICIONES_NECESARIAS = 10;  // 10 cuadros (súper rápido)
+const UMBRAL_CONFIANZA = 0.85;       // 85% de confianza (no exige perfección)
 
 // ==========================================
 // EMOJIS
