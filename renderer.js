@@ -20,8 +20,8 @@ let ultimaPrediccion = "";
 
 // 👇 AJUSTADO PARA QUE LA IA RESPONDA AL INSTANTE 👇
 // 5 repeticiones es casi medio segundo. 0.50 significa que si la IA está 50% segura, ya responde.
-const REPETICIONES_NECESARIAS = 5;  
-const UMBRAL_CONFIANZA = 0.50;       
+const REPETICIONES_NECESARIAS = 3;  
+const UMBRAL_CONFIANZA = 0.20;       
 
 // ==========================================
 // EMOJIS
