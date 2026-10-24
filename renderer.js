@@ -18,10 +18,9 @@ let lastSpokenTime = 0;
 let contadorEstable = 0;
 let ultimaPrediccion = "";
 
-// 👇 AJUSTADO PARA QUE LA IA RESPONDA AL INSTANTE 👇
-// 5 repeticiones es casi medio segundo. 0.50 significa que si la IA está 50% segura, ya responde.
-const REPETICIONES_NECESARIAS = 3;  
-const UMBRAL_CONFIANZA = 0.20;       
+// 👇 AJUSTADO PARA EVITAR QUE SE SOBREPONGAN 👇
+const REPETICIONES_NECESARIAS = 10;  // Espera 10 cuadros seguidos
+const UMBRAL_CONFIANZA = 0.85;       // Exige 85% de seguridad
 
 // ==========================================
 // EMOJIS
@@ -134,7 +133,7 @@ async function iniciarTodo() {
 }
 
 // ==========================================
-// RESPUESTAS (La IA decide qué mostrar)
+// RESPUESTAS
 // ==========================================
 function mostrarRespuestas(pregunta) {
     listaRespuestas.innerHTML = '';
@@ -146,9 +145,9 @@ function mostrarRespuestas(pregunta) {
         }
     }
 
-    // Si la IA detecta la palabra, mostramos sus respuestas. Si no, un mensaje neutral.
     const respuestasAMostrar = entrada ? entrada.respuestas : [
-        { texto: "Haz una seña para responder", sena: "---" }
+        { texto: "Sí", sena: "Si" }, { texto: "No", sena: "No" }, { texto: "Gracias", sena: "Gracias" },
+        { texto: "Por favor", sena: "Por favor" }, { texto: "De nada", sena: "De nada" }, { texto: "Hola", sena: "Hola" }
     ];
 
     respuestasAMostrar.forEach(resp => {
@@ -172,7 +171,7 @@ function mostrarRespuestas(pregunta) {
 }
 
 // ==========================================
-// PREDICCIÓN (Lógica de la IA)
+// PREDICCIÓN
 // ==========================================
 function normalizeLandmarks(landmarks) {
     const wrist = landmarks[0];
@@ -229,7 +228,6 @@ async function predecirWebcam() {
             const debugStr = clases.map((c, i) => `${c}: ${(datos[i] * 100).toFixed(0)}%`).join(" | ");
             debugText.textContent = debugStr;
 
-            // 👇 LA IA DECIDE INMEDIATAMENTE 👇
             if (maxProb > UMBRAL_CONFIANZA) {
                 if (palabra === ultimaPrediccion) {
                     contadorEstable++;
@@ -249,12 +247,9 @@ async function predecirWebcam() {
             prediccion.dispose();
         }
 
-        if (detectedWord === "---") {
-            resultText.textContent = "---";
-            ultimaPrediccion = ""; 
-            contadorEstable = 0;
-        } else {
-            resultText.textContent = detectedWord;
+        resultText.textContent = detectedWord;
+
+        if (detectedWord !== "---") {
             mostrarRespuestas(detectedWord);
 
             const tarjeta = document.getElementById('tarjeta-resultado');
@@ -280,12 +275,12 @@ async function predecirWebcam() {
         }
 
         const now = Date.now();
-        // 1.5 segundos de espera para no sobreponer el audio
-        if (detectedWord !== "---" && detectedWord !== lastSpokenWord && (now - lastSpokenTime > 1500)) {
+        // El temporizador de 3 segundos evita que se pisen las palabras
+        if (detectedWord !== "---" && detectedWord !== lastSpokenWord && (now - lastSpokenTime > 3000)) {
             hablar(detectedWord);
             lastSpokenWord = detectedWord;
             lastSpokenTime = now;
-            setTimeout(() => { lastSpokenWord = ""; }, 2000);
+            setTimeout(() => { lastSpokenWord = ""; }, 4000);
         } else if (detectedWord === "---") {
             lastSpokenWord = "";
         }
