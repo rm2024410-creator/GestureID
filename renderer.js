@@ -17,20 +17,13 @@ let lastSpokenWord = "";
 let lastSpokenTime = 0;
 let contadorEstable = 0;
 let ultimaPrediccion = "";
-let rafId = null;
-let lastFrameAt = 0;
-let historialPredicciones = [];
-let lastDisplayedWord = "";
-let lastDetectionTime = 0;
 
-const REPETICIONES_NECESARIAS = 12;  // Ni muy rápido, ni muy lento
-const UMBRAL_CONFIANZA = 0.70;       // 70% de seguridad (evita confusiones)       
-const FRAME_INTERVAL_MS = 66;
-const MAX_HISTORIAL = 8;
-const DETECCION_MANTENER_MS = 1200;
+// 👇 EL PUNTO PERFECTO DE DETECCIÓN 👇
+const REPETICIONES_NECESARIAS = 8;   
+const UMBRAL_CONFIANZA = 0.60;        
 
 // ==========================================
-// EMOJIS (AQUÍ ESTÁ LA MAGIA)
+// EMOJIS
 // ==========================================
 const emojisSenas = {
     "Hola": "👋", "Buenos Dias": "☀️", "Buenas Tardes": "🌤️", "Buenas Noches": "🌙",
@@ -51,7 +44,6 @@ if (speechSynthesis.onvoiceschanged !== undefined) {
     speechSynthesis.onvoiceschanged = cargarVoces;
 }
 function hablar(texto) {
-    if (!texto || !synth) return;
     if (synth.speaking) synth.cancel();
     const utterance = new SpeechSynthesisUtterance(texto);
     utterance.lang = 'es-ES';
@@ -65,53 +57,20 @@ function hablar(texto) {
 // BASE DE DATOS
 // ==========================================
 const baseDeDatos = {
-    "Hola": {
-        respuestas: [
-            { texto: "Hola, ¿qué tal?", sena: "Hola" },
-            { texto: "Buenos días", sena: "Buenos Dias" },
-            { texto: "Buenas tardes", sena: "Buenas Tardes" }
-        ]
-    },
-    "Como estas": {
-        respuestas: [
-            { texto: "Estoy bien, gracias", sena: "Bien" },
-            { texto: "Estoy regular", sena: "Regular" },
-            { texto: "Estoy mal", sena: "Mal" },
-            { texto: "¿Y tú cómo estás?", sena: "Y tu" }
-        ]
-    },
-    "Mi nombres es": {
-        respuestas: [
-            { texto: "Mi nombre es Gabriel", sena: "Mi nombres es" },
-            { texto: "Mi nombre es Erika", sena: "Mi nombres es" }
-        ]
-    },
-    "Buenos Dias": {
-        respuestas: [
-            { texto: "Buenos días", sena: "Buenos Dias" },
-            { texto: "Hola", sena: "Hola" }
-        ]
-    },
-    "Adios": {
-        respuestas: [
-            { texto: "Adiós", sena: "Adios" },
-            { texto: "Nos vemos", sena: "Adios" },
-            { texto: "Hasta luego", sena: "Adios" }
-        ]
-    }
+    "Hola": { respuestas: [{ texto: "Hola, ¿qué tal?", sena: "Hola" }, { texto: "Buenos días", sena: "Buenos Dias" }, { texto: "Buenas tardes", sena: "Buenas Tardes" }] },
+    "Como estas": { respuestas: [{ texto: "Estoy bien, gracias", sena: "Bien" }, { texto: "Estoy regular", sena: "Regular" }, { texto: "Estoy mal", sena: "Mal" }, { texto: "¿Y tú cómo estás?", sena: "Y tu" }] },
+    "Mi nombres es": { respuestas: [{ texto: "Mi nombre es Gabriel", sena: "Mi nombres es" }, { texto: "Mi nombre es Erika", sena: "Mi nombres es" }] },
+    "Buenos Dias": { respuestas: [{ texto: "Buenos días", sena: "Buenos Dias" }, { texto: "Hola", sena: "Hola" }] },
+    "Adios": { respuestas: [{ texto: "Adiós", sena: "Adios" }, { texto: "Nos vemos", sena: "Adios" }, { texto: "Hasta luego", sena: "Adios" }] }
 };
 
 // ==========================================
-// INICIAR (COMPATIBLE CON PC Y TELÉFONO)
+// INICIAR
 // ==========================================
 async function iniciarTodo() {
     statusText.textContent = "Cargando modelo...";
     startBtn.disabled = true;
     startBtn.textContent = "⏳ Cargando...";
-    historialPredicciones = [];
-    contadorEstable = 0;
-    ultimaPrediccion = "";
-    lastDisplayedWord = "";
 
     try {
         let paquete;
@@ -124,12 +83,11 @@ async function iniciarTodo() {
             paquete = JSON.parse(contenido);
         } else {
             const respuesta = await fetch("modelo_completo.json");
-            if (!respuesta.ok) throw new Error("No se pudo cargar el modelo");
             paquete = await respuesta.json();
         }
 
-        clases = paquete.clases || [];
-        if (!clases.length) throw new Error("El modelo no tiene clases");
+        clases = paquete.clases;
+        statusText.textContent = "Cámara activa";
 
         const binaryString = atob(paquete.pesos);
         const bytes = new Uint8Array(binaryString.length);
@@ -137,13 +95,6 @@ async function iniciarTodo() {
             bytes[i] = binaryString.charCodeAt(i);
         }
         const weightData = bytes.buffer;
-
-        try {
-            await tf.setBackend("webgl");
-        } catch (error) {
-            console.warn("TensorFlow.js WebGL no disponible, usando backend predeterminado", error);
-        }
-        await tf.ready();
 
         modelo = await tf.loadLayersModel(tf.io.fromMemory({
             modelTopology: paquete.modelo,
@@ -154,60 +105,18 @@ async function iniciarTodo() {
         const vision = await window.FilesetResolver.forVisionTasks(
             "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
         );
+        handLandmarker = await window.HandLandmarker.createFromOptions(vision, {
+            baseOptions: {
+                modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+                delegate: "GPU"
+            },
+            runningMode: "VIDEO",
+            numHands: 2
+        });
 
-        try {
-            handLandmarker = await window.HandLandmarker.createFromOptions(vision, {
-                baseOptions: {
-                    modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
-                    delegate: "GPU"
-                },
-                runningMode: "VIDEO",
-                numHands: 2
-            });
-        } catch (error) {
-            console.warn("GPU no disponible, usando CPU", error);
-            handLandmarker = await window.HandLandmarker.createFromOptions(vision, {
-                baseOptions: {
-                    modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
-                    delegate: "CPU"
-                },
-                runningMode: "VIDEO",
-                numHands: 2
-            });
-        }
-
-        if (video.srcObject) {
-            const tracks = video.srcObject.getTracks();
-            tracks.forEach(track => track.stop());
-        }
-
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            throw new Error("Este dispositivo o navegador no permite acceder a la cámara");
-        }
-
-        let stream;
-        try {
-            stream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: "user",
-                    width: { ideal: 320 },
-                    height: { ideal: 240 },
-                    frameRate: { ideal: 30, max: 30 }
-                },
-                audio: false
-            });
-        } catch (error) {
-            console.warn("No se pudo iniciar la cámara con resolución optimizada", error);
-            stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        }
-
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         video.srcObject = stream;
-        video.muted = true;
-        video.playsInline = true;
-        await video.play();
-        lastVideoTime = -1;
-        lastFrameAt = 0;
-        rafId = requestAnimationFrame(predecirWebcam);
+        video.addEventListener('loadeddata', predecirWebcam);
 
         videoContainer.classList.remove('hidden');
         startBtn.style.display = 'none';
@@ -217,13 +126,9 @@ async function iniciarTodo() {
 
     } catch (error) {
         console.error("Error:", error);
-        statusText.textContent = "Error: " + (error?.message || "desconocido");
+        statusText.textContent = "Error: " + error.message;
         startBtn.disabled = false;
         startBtn.textContent = "🎥 Encender Cámara";
-        if (video.srcObject) {
-            video.srcObject.getTracks().forEach(track => track.stop());
-            video.srcObject = null;
-        }
     }
 }
 
@@ -241,12 +146,7 @@ function mostrarRespuestas(pregunta) {
     }
 
     const respuestasAMostrar = entrada ? entrada.respuestas : [
-        { texto: "Sí", sena: "Si" },
-        { texto: "No", sena: "No" },
-        { texto: "Gracias", sena: "Gracias" },
-        { texto: "Por favor", sena: "Por favor" },
-        { texto: "De nada", sena: "De nada" },
-        { texto: "Hola", sena: "Hola" }
+        { texto: "Haz una seña para responder", sena: "---" }
     ];
 
     respuestasAMostrar.forEach(resp => {
@@ -270,7 +170,7 @@ function mostrarRespuestas(pregunta) {
 }
 
 // ==========================================
-// NORMALIZAR Y PREDECIR
+// PREDICCIÓN
 // ==========================================
 function normalizeLandmarks(landmarks) {
     const wrist = landmarks[0];
@@ -299,120 +199,96 @@ function extraerVectorDosManos(resultados) {
 }
 
 async function predecirWebcam() {
-    if (!handLandmarker || !modelo || !video) return;
-    if (video.readyState < 2) {
-        rafId = requestAnimationFrame(predecirWebcam);
-        return;
-    }
+    if (!handLandmarker || !modelo) return;
 
-    const ahora = performance.now();
-    if (ahora - lastFrameAt < FRAME_INTERVAL_MS || video.currentTime === lastVideoTime) {
-        rafId = requestAnimationFrame(predecirWebcam);
-        return;
-    }
+    let startTimeMs = performance.now();
+    if (video.currentTime !== lastVideoTime) {
+        lastVideoTime = video.currentTime;
+        const results = handLandmarker.detectForVideo(video, startTimeMs);
 
-    lastFrameAt = ahora;
-    lastVideoTime = video.currentTime;
+        let detectedWord = "---";
 
-    try {
-        const results = handLandmarker.detectForVideo(video, ahora);
-        if (results && results.landmarks && results.landmarks.length > 0) {
+        if (results.landmarks && results.landmarks.length > 0) {
             const vector = extraerVectorDosManos(results);
-            const input = tf.tensor2d([vector], [1, vector.length]);
-            let prediccion;
-            let datos;
-            try {
-                prediccion = modelo.predict(input);
-                if (Array.isArray(prediccion)) {
-                    throw new Error("El modelo debe devolver una sola salida");
-                }
-                datos = await prediccion.data();
-            } finally {
-                input.dispose();
-                if (Array.isArray(prediccion)) {
-                    prediccion.forEach(tensor => tensor.dispose());
-                } else if (prediccion) {
-                    prediccion.dispose();
-                }
-            }
+            const input = tf.tensor2d([vector]);
+            const prediccion = modelo.predict(input);
+            const datos = await prediccion.data();
 
             let maxIdx = 0;
-            let maxProb = datos[0] || 0;
+            let maxProb = datos[0];
             for (let i = 1; i < datos.length; i++) {
-                if ((datos[i] || 0) > maxProb) {
+                if (datos[i] > maxProb) {
                     maxProb = datos[i];
                     maxIdx = i;
                 }
             }
 
-            debugText.textContent = clases.map((c, i) => `${c}: ${(datos[i] * 100).toFixed(0)}%`).join(" | ");
-            if (maxProb >= UMBRAL_CONFIANZA) {
-                historialPredicciones.push(clases[maxIdx] || "---");
-                if (historialPredicciones.length > MAX_HISTORIAL) historialPredicciones.shift();
+            const palabra = clases[maxIdx];
+            const debugStr = clases.map((c, i) => `${c}: ${(datos[i] * 100).toFixed(0)}%`).join(" | ");
+            debugText.textContent = debugStr;
+
+            if (maxProb > UMBRAL_CONFIANZA) {
+                if (palabra === ultimaPrediccion) {
+                    contadorEstable++;
+                } else {
+                    contadorEstable = 1;
+                    ultimaPrediccion = palabra;
+                }
+                if (contadorEstable >= REPETICIONES_NECESARIAS) {
+                    detectedWord = palabra;
+                }
             } else {
-                historialPredicciones = [];
+                contadorEstable = 0;
+                ultimaPrediccion = "";
             }
-        } else {
-            historialPredicciones = [];
-            debugText.textContent = "Sin manos detectadas";
+
+            input.dispose();
+            prediccion.dispose();
         }
 
-        const conteo = new Map();
-        for (const palabra of historialPredicciones) {
-            conteo.set(palabra, (conteo.get(palabra) || 0) + 1);
-        }
-
-        let detectedWord = "---";
-        let maxRepeticiones = 0;
-        for (const [palabra, cantidad] of conteo) {
-            if (cantidad > maxRepeticiones) {
-                detectedWord = palabra;
-                maxRepeticiones = cantidad;
-            }
-        }
-
-        if (maxRepeticiones >= REPETICIONES_NECESARIAS) {
-            ultimaPrediccion = detectedWord;
-            contadorEstable = maxRepeticiones;
-            lastDetectionTime = Date.now();
-        } else if (Date.now() - lastDetectionTime < DETECCION_MANTENER_MS && ultimaPrediccion) {
-            detectedWord = ultimaPrediccion;
-        } else {
-            ultimaPrediccion = "";
+        if (detectedWord === "---" && !results.landmarks) {
+            resultText.textContent = "---";
+            ultimaPrediccion = ""; 
             contadorEstable = 0;
-        }
-
-        resultText.textContent = detectedWord;
-
-        if (detectedWord !== "---" && detectedWord !== lastDisplayedWord) {
+        } 
+        else if (detectedWord !== "---") {
+            resultText.textContent = detectedWord;
             mostrarRespuestas(detectedWord);
+
             const tarjeta = document.getElementById('tarjeta-resultado');
-            if (tarjeta) {
+            if (tarjeta && detectedWord !== ultimaPrediccion) {
                 tarjeta.classList.remove('detectado-pulse');
                 void tarjeta.offsetWidth;
                 tarjeta.classList.add('detectado-pulse');
+
+                try {
+                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = audioCtx.createOscillator();
+                    const gainNode = audioCtx.createGain();
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioCtx.destination);
+                    oscillator.type = 'sine';
+                    oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
+                    gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+                    oscillator.start();
+                    oscillator.stop(audioCtx.currentTime + 0.5);
+                } catch(e) {}
             }
-            lastDisplayedWord = detectedWord;
-        } else if (detectedWord === "---") {
-            lastDisplayedWord = "";
         }
 
         const now = Date.now();
-        if (detectedWord !== "---" && detectedWord !== lastSpokenWord && now - lastSpokenTime > 2000) {
+        // 👇 AQUÍ ESTÁ EL CAMBIO QUE PEDISTE (4000 ms) 👇
+        if (detectedWord !== "---" && detectedWord !== lastSpokenWord && (now - lastSpokenTime > 4000)) {
             hablar(detectedWord);
             lastSpokenWord = detectedWord;
             lastSpokenTime = now;
+            setTimeout(() => { lastSpokenWord = ""; }, 4500);
         } else if (detectedWord === "---") {
             lastSpokenWord = "";
         }
-    } catch (error) {
-        console.error("Error durante la detección de señas:", error);
-        statusText.textContent = "Error al analizar la cámara";
-        historialPredicciones = [];
-        resultText.textContent = "---";
-    } finally {
-        rafId = requestAnimationFrame(predecirWebcam);
     }
+    requestAnimationFrame(predecirWebcam);
 }
 
 startBtn.addEventListener('click', iniciarTodo);
